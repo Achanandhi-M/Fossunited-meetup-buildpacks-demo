@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+echo "---> Running Python Buildpack"
+
+# 1. Creating python layer
+python_layer="$CNB_LAYERS_DIR/python"
+mkdir -p "${python_layer}"
+
+# 2. Downloading Python
+echo "---> Downloading and extracting Python"
+
+python_url="https://github.com/astral-sh/python-build-standalone/releases/download/20250212/cpython-3.10.16+20250212-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+
+wget -q -O python.tar.gz "$python_url"
+
+tar -xzvf python.tar.gz -C "${python_layer}" --strip-components=1
+
+# 3. Make Python available during launch
+cat > "${CNB_LAYERS_DIR}/python.toml" << EOL
+[types]
+build = false
+launch = true
+cache = false
+EOL
+
+# 4. Creating layer for Python dependencies
+PIP_LAYER="$CNB_LAYERS_DIR/pip"
+
+mkdir -p "$PIP_LAYER/modules" "$PIP_LAYER/env"
+
+export PATH="$CNB_LAYERS_DIR/python/bin:$PATH"
+
+echo "path printing"
+echo $PATH
+
+# 6. Install dependencies
+
+pip install -r requirements.txt -t "$PIP_LAYER/modules" --disable-pip-version-check --no-cache-dir
+
+# 7. Set PYTHONPATH to the location of installed modules
+echo "listing pip layer modules" 
+ls -l "$PIP_LAYER/modules"
+
+echo "Python Layer: $python_layer"
+echo "listing cnb layer dir"
+
+ls -l "$CNB_LAYERS_DIR"
+
+echo "python cnb layer dir python"
+
+ls -l "$CNB_LAYERS_DIR/python"
+
+echo "Pip Layer: $PIP_LAYER"
+
+echo "python cnb layer dir pip"
+
+ls -l "$CNB_LAYERS_DIR/pip"
+
+echo "python pip layer modules"
+
+ls "$PIP_LAYER/modules"
+
+export PYTHONPATH="$PIP_LAYER/modules:$PYTHONPATH"
+
+# 8. Ensure pip layer is available during launch
+echo "launch = true" > "pip.toml"
+
+cat > "${CNB_LAYERS_DIR}/launch.toml" << EOL
+
+# 9. Start our Application
+[[processes]]
+type = "web"
+command = ["python", "main.py"]
+default = true
+EOL
