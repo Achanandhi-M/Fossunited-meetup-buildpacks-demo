@@ -1,0 +1,17 @@
+Command for Demo-1
+
+pack build foss-united-blr \
+  --builder paketobuildpacks/builder-jammy-base   \
+
+
+docker run -p 8080:8080 foss-united-blr
+
+
+Commands for Demo-second 
+pack config default-builder cnbs/sample-builder:noble
+
+pack build test-python-app --path ./flask-app --buildpack ./python-buildpack
+
+sudo docker run -p 5000:5000 test-python-app
+
+docker inspect test-python-app | grep -i created
