@@ -1,8 +1,0 @@
-api = "0.10"
-
-[buildpack]
-  id = "python-buildpack"
-  version = "0.0.1"
-[[targets]]
-  os="linux"
-  arch="amd64"

@@ -1,3 +1,0 @@
-pack config default-builder cnbs/sample-builder:noble
-
-pack build test-python-app --path ./python-app --buildpack ./python-buildpack

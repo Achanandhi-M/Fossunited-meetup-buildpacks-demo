@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -eo pipefail
-
-echo "Detecting the App"
-
-if [[ ! -f requirements.txt ]]; then
-   exit 100
-fi
