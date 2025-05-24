@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+echo "---> Running Python Buildpack"
+
+# Layer directories
+python_layer="$CNB_LAYERS_DIR/python"
+pip_layer="$CNB_LAYERS_DIR/pip"
+
+# 1. Clean any existing layers
+rm -rf "${python_layer}" "${pip_layer}"
+
+# 2. Prepare python layer
+mkdir -p "${python_layer}"
+
+echo "---> Downloading and extracting Python"
+python_url="https://github.com/astral-sh/python-build-standalone/releases/download/20250212/cpython-3.10.16+20250212-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+wget -q -O python.tar.gz "$python_url"
+tar -xzvf python.tar.gz -C "${python_layer}" --strip-components=1
+rm python.tar.gz
+
+# 3. Create python.toml for python layer
+cat > "${python_layer}.toml" << EOL
+[types]
+build = false
+launch = true
+cache = false
+EOL
+
+# 4. Prepare pip layer directories
+mkdir -p "$pip_layer/modules" "$pip_layer/env"
+
+# 5. Add Python bin to PATH for pip install
+export PATH="${python_layer}/bin:$PATH"
+
+echo "---> PATH is: $PATH"
+
+# 6. Clean modules directory and install dependencies
+rm -rf "$pip_layer/modules"/*
+pip install --upgrade --force-reinstall -r requirements.txt -t "$pip_layer/modules" --disable-pip-version-check --no-cache-dir
+
+# 7. Create pip.toml with launch = true
+cat > "${pip_layer}.toml" << EOL
+[types]
+build = false
+launch = true
+cache = true
+
+[metadata]
+python_packages_dir = "modules"
+EOL
+
+# 8. Create env directory and set environment variables
+mkdir -p "$pip_layer/env"
+echo "$pip_layer/modules" > "$pip_layer/env/PYTHONPATH.default"
+# IMPORTANT: Remove the trailing newline from PYTHONHOME
+echo -n "${python_layer}" > "$pip_layer/env/PYTHONHOME.default"
+
+# 9. Create a .pth file to ensure packages are found
+echo "$pip_layer/modules" > "${python_layer}/lib/python3.10/site-packages/pip_layer.pth"
+
+# 10. Create launch.toml to set the process
+cat > "${CNB_LAYERS_DIR}/launch.toml" << EOL
+[[processes]]
+type = "web"
+command = ["${python_layer}/bin/python", "main.py", "--host=0.0.0.0"]
+default = true
+
+[[slices]]
+pattern = "**/*.py"
+EOL
+
+echo "---> Build completed successfully"
